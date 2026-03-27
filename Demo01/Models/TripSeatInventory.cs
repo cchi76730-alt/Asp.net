@@ -8,5 +8,7 @@
 
         // AVAILABLE / HELD / SOLD
         public string Status { get; set; } = string.Empty;
+
+        public bool IsBooked { get; set; }
     }
 }

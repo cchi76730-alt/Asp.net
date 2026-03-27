@@ -7,5 +7,7 @@
         public int TripId { get; set; }
         public int SeatId { get; set; }
         public string Status { get; set; } = string.Empty;
+
+        public decimal Price { get; set; }
     }
 }

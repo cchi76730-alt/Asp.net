@@ -8,5 +8,7 @@
         public int TripId { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
+
+        public DateTime BookingDate { get; set; }
     }
 }

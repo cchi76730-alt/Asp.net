@@ -7,8 +7,6 @@
         public int SeatId { get; set; }
 
         // AVAILABLE / HELD / SOLD
-        public string Status { get; set; } = string.Empty;
-
-        public bool IsBooked { get; set; }
+        public string Status { get; set; } = "AVAILABLE";
     }
 }

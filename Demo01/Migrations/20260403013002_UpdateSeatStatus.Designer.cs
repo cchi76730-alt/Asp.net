@@ -4,6 +4,7 @@ using Demo01.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Demo01.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403013002_UpdateSeatStatus")]
+    partial class UpdateSeatStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -51,8 +54,6 @@ namespace Demo01.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CustomerId");
 
                     b.ToTable("Bookings");
                 });
@@ -284,8 +285,6 @@ namespace Demo01.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BookingId");
-
                     b.ToTable("Tickets");
                 });
 
@@ -377,17 +376,6 @@ namespace Demo01.Migrations
                     b.ToTable("TripSeatInventories");
                 });
 
-            modelBuilder.Entity("Demo01.Models.Booking", b =>
-                {
-                    b.HasOne("Demo01.Models.Customer", "Customer")
-                        .WithMany("Bookings")
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-                });
-
             modelBuilder.Entity("Demo01.Models.Carriage", b =>
                 {
                     b.HasOne("Demo01.Models.Train", "Train")
@@ -408,27 +396,6 @@ namespace Demo01.Migrations
                         .IsRequired();
 
                     b.Navigation("Carriage");
-                });
-
-            modelBuilder.Entity("Demo01.Models.Ticket", b =>
-                {
-                    b.HasOne("Demo01.Models.Booking", "Booking")
-                        .WithMany("Tickets")
-                        .HasForeignKey("BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Booking");
-                });
-
-            modelBuilder.Entity("Demo01.Models.Booking", b =>
-                {
-                    b.Navigation("Tickets");
-                });
-
-            modelBuilder.Entity("Demo01.Models.Customer", b =>
-                {
-                    b.Navigation("Bookings");
                 });
 #pragma warning restore 612, 618
         }

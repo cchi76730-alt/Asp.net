@@ -16,9 +16,19 @@ namespace Demo01.Controllers
             _context = context;
         }
 
-        // =========================
-        // GET ALL BOOKINGS
-        // =========================
+        public class HoldSeatRequest
+        {
+            public int TripId { get; set; }
+            public int SeatId { get; set; }
+        }
+
+        public class BookSeatRequest
+        {
+            public int TripId { get; set; }
+            public int SeatId { get; set; }
+            public int CustomerId { get; set; }
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetBookings()
         {
@@ -30,9 +40,6 @@ namespace Demo01.Controllers
             return Ok(bookings);
         }
 
-        // =========================
-        // GET BOOKING BY ID
-        // =========================
         [HttpGet("{id}")]
         public async Task<IActionResult> GetBooking(int id)
         {
@@ -41,111 +48,122 @@ namespace Demo01.Controllers
                 .Include(b => b.Tickets)
                 .FirstOrDefaultAsync(b => b.Id == id);
 
-            if (booking == null)
-                return NotFound();
+            if (booking == null) return NotFound();
 
             return Ok(booking);
         }
 
-        // =========================
-        // HOLD SEAT
-        // =========================
         [HttpPost("hold-seat")]
-        public async Task<IActionResult> HoldSeat(int tripId, int seatId)
+        public async Task<IActionResult> HoldSeat([FromBody] HoldSeatRequest request)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 
-            var seat = await _context.TripSeatInventories
-                .FirstOrDefaultAsync(x => x.TripId == tripId && x.SeatId == seatId);
-
-            if (seat == null)
-                return NotFound("Không tìm thấy ghế");
-
-            if (seat.Status != "AVAILABLE")
-                return BadRequest("Ghế không khả dụng");
-
-            seat.Status = "HELD";
-
-            var hold = new SeatHold
+            try
             {
-                TripId = tripId,
-                SeatId = seatId,
-                Status = "ACTIVE",
-                ExpiredAt = DateTime.Now.AddMinutes(10)
-            };
+                var seat = await _context.TripSeatInventories
+                    .FirstOrDefaultAsync(x => x.TripId == request.TripId && x.SeatId == request.SeatId);
 
-            _context.SeatHolds.Add(hold);
-            await _context.SaveChangesAsync();
+                if (seat == null) return NotFound("Không tìm thấy ghế");
 
-            await transaction.CommitAsync();
+                if (seat.Status != "AVAILABLE")
+                    return BadRequest("Ghế không khả dụng");
 
-            return Ok("Giữ ghế thành công");
+                seat.Status = "HELD";
+
+                var hold = new SeatHold
+                {
+                    TripId = request.TripId,
+                    SeatId = request.SeatId,
+                    Status = "ACTIVE",
+                    ExpiredAt = DateTime.Now.AddMinutes(10)
+                };
+
+                _context.SeatHolds.Add(hold);
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+                return Ok("Giữ ghế thành công");
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, "Lỗi hệ thống");
+            }
         }
 
-        // =========================
-        // BOOK SEAT
-        // =========================
         [HttpPost("book")]
-        public async Task<IActionResult> BookSeat(int tripId, int seatId, int customerId)
+        public async Task<IActionResult> BookSeat([FromBody] BookSeatRequest request)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 
-            var seat = await _context.TripSeatInventories
-                .FirstOrDefaultAsync(x => x.TripId == tripId && x.SeatId == seatId);
-
-            if (seat == null)
-                return NotFound("Không tìm thấy ghế");
-
-            if (seat.Status != "HELD")
-                return BadRequest("Ghế chưa được giữ");
-
-            var booking = new Booking
+            try
             {
-                BookingCode = Guid.NewGuid().ToString(),
-                CustomerId = customerId,
-                TripId = tripId,
-                BookingDate = DateTime.Now,
-                Status = "CONFIRMED",
-                TotalAmount = 100
-            };
+                var hold = await _context.SeatHolds
+                    .FirstOrDefaultAsync(x =>
+                        x.TripId == request.TripId &&
+                        x.SeatId == request.SeatId &&
+                        x.Status == "ACTIVE" &&
+                        x.ExpiredAt > DateTime.Now);
 
-            _context.Bookings.Add(booking);
-            await _context.SaveChangesAsync();
+                if (hold == null)
+                    return BadRequest("Ghế chưa được giữ hoặc đã hết hạn");
 
-            var ticket = new Ticket
+                var customer = await _context.Customers.FindAsync(request.CustomerId);
+                if (customer == null)
+                    return NotFound("Customer không tồn tại");
+
+                var booking = new Booking
+                {
+                    BookingCode = Guid.NewGuid().ToString(),
+                    CustomerId = request.CustomerId,
+                    TripId = request.TripId,
+                    BookingDate = DateTime.Now,
+                    Status = "CONFIRMED",
+                    TotalAmount = 100
+                };
+
+                _context.Bookings.Add(booking);
+                await _context.SaveChangesAsync();
+
+                var ticket = new Ticket
+                {
+                    BookingId = booking.Id,
+                    TripId = request.TripId,
+                    SeatId = request.SeatId,
+                    Price = 100,
+                    Status = "ISSUED"
+                };
+
+                _context.Tickets.Add(ticket);
+
+                var seat = await _context.TripSeatInventories
+                    .FirstAsync(x => x.TripId == request.TripId && x.SeatId == request.SeatId);
+
+                seat.Status = "SOLD";
+                hold.Status = "USED";
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok("Đặt vé thành công");
+            }
+            catch
             {
-                BookingId = booking.Id,
-                TripId = tripId,
-                SeatId = seatId,
-                Price = 100,
-                Status = "ISSUED"
-            };
-
-            _context.Tickets.Add(ticket);
-
-            seat.Status = "SOLD";
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return Ok("Đặt vé thành công");
+                await transaction.RollbackAsync();
+                return StatusCode(500, "Lỗi hệ thống");
+            }
         }
 
-        // =========================
-        // CANCEL BOOKING
-        // =========================
-        [HttpPost("cancel")]
-        public async Task<IActionResult> CancelBooking(int bookingId)
+        [HttpPut("{id}/cancel")]
+        public async Task<IActionResult> CancelBooking(int id)
         {
-            var booking = await _context.Bookings.FindAsync(bookingId);
-
-            if (booking == null)
-                return NotFound();
+            var booking = await _context.Bookings.FindAsync(id);
+            if (booking == null) return NotFound();
 
             booking.Status = "CANCELLED";
 
             var tickets = await _context.Tickets
-                .Where(t => t.BookingId == bookingId)
+                .Where(t => t.BookingId == id)
                 .ToListAsync();
 
             foreach (var ticket in tickets)
@@ -158,36 +176,7 @@ namespace Demo01.Controllers
             }
 
             await _context.SaveChangesAsync();
-
             return Ok("Đã hủy booking");
-        }
-
-        // =========================
-        // RELEASE EXPIRED
-        // =========================
-        [HttpPost("release-expired")]
-        public async Task<IActionResult> ReleaseExpiredSeats()
-        {
-            var now = DateTime.Now;
-
-            var expiredHolds = await _context.SeatHolds
-                .Where(x => x.Status == "ACTIVE" && x.ExpiredAt < now)
-                .ToListAsync();
-
-            foreach (var hold in expiredHolds)
-            {
-                var seat = await _context.TripSeatInventories
-                    .FirstOrDefaultAsync(x => x.TripId == hold.TripId && x.SeatId == hold.SeatId);
-
-                if (seat != null)
-                    seat.Status = "AVAILABLE";
-
-                hold.Status = "EXPIRED";
-            }
-
-            await _context.SaveChangesAsync();
-
-            return Ok("Đã release ghế hết hạn");
         }
     }
 }

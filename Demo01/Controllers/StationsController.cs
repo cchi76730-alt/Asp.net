@@ -16,55 +16,82 @@ namespace Demo01.Controllers
             _context = context;
         }
 
-        // GET: api/stations
+        // =========================
+        // GET ALL
+        // =========================
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Station>>> GetStations()
+        public async Task<IActionResult> GetStations()
         {
-            return await _context.Stations.ToListAsync();
+            var stations = await _context.Stations.ToListAsync();
+            return Ok(stations);
         }
 
-        // GET: api/stations/1
+        // =========================
+        // GET BY ID
+        // =========================
         [HttpGet("{id}")]
-        public async Task<ActionResult<Station>> GetStation(int id)
+        public async Task<IActionResult> GetStation(int id)
         {
             var station = await _context.Stations.FindAsync(id);
 
             if (station == null)
-                return NotFound();
+                return NotFound("Không tìm thấy station");
 
-            return station;
+            return Ok(station);
         }
 
-        // POST: api/stations
+        // =========================
+        // CREATE
+        // =========================
         [HttpPost]
-        public async Task<ActionResult<Station>> CreateStation(Station station)
+        public async Task<IActionResult> CreateStation([FromBody] Station station)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             _context.Stations.Add(station);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetStation), new { id = station.Id }, station);
         }
 
-        // PUT: api/stations/1
+        // =========================
+        // UPDATE
+        // =========================
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateStation(int id, Station station)
+        public async Task<IActionResult> UpdateStation(int id, [FromBody] Station station)
         {
             if (id != station.Id)
-                return BadRequest();
+                return BadRequest("Id không khớp");
 
-            _context.Entry(station).State = EntityState.Modified;
+            var existing = await _context.Stations.FindAsync(id);
+            if (existing == null)
+                return NotFound("Không tìm thấy station");
+
+            // 👉 KHÔNG dùng Modified toàn bộ để tránh overwrite bừa
+            // 👉 Map thủ công theo field thực tế của bạn
+
+            // Ví dụ nếu Station có Name:
+            // existing.Name = station.Name;
+
+            // Nếu bạn chưa rõ field → giữ nguyên cách cũ:
+            _context.Entry(existing).CurrentValues.SetValues(station);
+
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        // DELETE: api/stations/1
+        // =========================
+        // DELETE
+        // =========================
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteStation(int id)
         {
             var station = await _context.Stations.FindAsync(id);
+
             if (station == null)
-                return NotFound();
+                return NotFound("Không tìm thấy station");
 
             _context.Stations.Remove(station);
             await _context.SaveChangesAsync();

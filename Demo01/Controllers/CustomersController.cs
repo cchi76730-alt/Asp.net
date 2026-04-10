@@ -17,17 +17,27 @@ namespace Demo01.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Customer>>> GetCustomers()
+        public async Task<IActionResult> GetCustomers()
         {
-            return await _context.Customers.ToListAsync();
+            return Ok(await _context.Customers.ToListAsync());
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetCustomer(int id)
+        {
+            var customer = await _context.Customers.FindAsync(id);
+            if (customer == null) return NotFound();
+
+            return Ok(customer);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Customer>> CreateCustomer(Customer customer)
+        public async Task<IActionResult> CreateCustomer([FromBody] Customer customer)
         {
             _context.Customers.Add(customer);
             await _context.SaveChangesAsync();
-            return customer;
+
+            return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);
         }
 
         [HttpPut("{id}")]
@@ -36,7 +46,13 @@ namespace Demo01.Controllers
             if (id != customer.Id)
                 return BadRequest();
 
-            _context.Entry(customer).State = EntityState.Modified;
+            var existing = await _context.Customers.FindAsync(id);
+            if (existing == null)
+                return NotFound();
+
+            // ✅ KHÔNG dùng Name/Email nữa
+            _context.Entry(existing).CurrentValues.SetValues(customer);
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
@@ -45,11 +61,11 @@ namespace Demo01.Controllers
         public async Task<IActionResult> DeleteCustomer(int id)
         {
             var customer = await _context.Customers.FindAsync(id);
-            if (customer == null)
-                return NotFound();
+            if (customer == null) return NotFound();
 
             _context.Customers.Remove(customer);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
     }

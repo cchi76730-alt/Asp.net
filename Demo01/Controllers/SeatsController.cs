@@ -15,12 +15,37 @@ namespace Demo01.Controllers
             _context = context;
         }
 
-        // Xem ghế theo trip
+        // =========================
+        // ALL SEATS BY TRIP
+        // =========================
         [HttpGet("trip/{tripId}")]
         public async Task<IActionResult> GetSeatsByTrip(int tripId)
         {
             var seats = await _context.TripSeatInventories
                 .Where(x => x.TripId == tripId)
+                .Select(x => new
+                {
+                    x.SeatId,
+                    x.Status
+                })
+                .ToListAsync();
+
+            return Ok(seats);
+        }
+
+        // =========================
+        // AVAILABLE SEATS
+        // =========================
+        [HttpGet("trip/{tripId}/available")]
+        public async Task<IActionResult> GetAvailableSeats(int tripId)
+        {
+            var seats = await _context.TripSeatInventories
+                .Where(x => x.TripId == tripId && x.Status == "AVAILABLE")
+                .Select(x => new
+                {
+                    x.SeatId,
+                    x.Status
+                })
                 .ToListAsync();
 
             return Ok(seats);

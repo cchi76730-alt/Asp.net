@@ -7,6 +7,10 @@
         public int SeatId { get; set; }
 
         public string Status { get; set; } = "ACTIVE";
+
+        // ❌ KHÔNG dùng ?
         public DateTime ExpiredAt { get; set; }
+
+        public int CustomerId { get; set; }
     }
 }

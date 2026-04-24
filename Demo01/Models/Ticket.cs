@@ -1,4 +1,6 @@
-﻿namespace Demo01.Models
+﻿using System.Text.Json.Serialization;
+
+namespace Demo01.Models
 {
     public class Ticket
     {
@@ -10,7 +12,8 @@
         public decimal Price { get; set; }
         public string Status { get; set; } = string.Empty;
 
-        // Navigation
-        public Booking Booking { get; set; }
+        // 🔥 FIX: tránh vòng lặp JSON
+        [JsonIgnore]
+        public Booking? Booking { get; set; }
     }
 }

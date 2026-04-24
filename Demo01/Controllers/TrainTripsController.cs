@@ -17,13 +17,33 @@ namespace Demo01.Controllers
         }
 
         // =========================
-        // GET ALL
+        // GET ALL (FIXED CLEAN)
         // =========================
         [HttpGet]
         public async Task<IActionResult> GetTrips()
         {
-            var trips = await _context.TrainTrips.ToListAsync();
-            return Ok(trips);
+            var data = await _context.TrainTrips
+                .Include(t => t.Train)
+                .Include(t => t.Route)
+                    .ThenInclude(r => r.OriginStation)
+                .Include(t => t.Route)
+                    .ThenInclude(r => r.DestinationStation)
+                .Select(t => new
+                {
+                    id = t.Id,
+                    trainCode = t.Train.TrainCode,
+
+                    // 🔥 FIX CHỖ NÀY
+                    from = t.Route.OriginStation.Name,
+                    to = t.Route.DestinationStation.Name,
+
+                    date = t.DepartureTime,
+                    time = t.DepartureTime,
+                    price = 100
+                })
+                .ToListAsync();
+
+            return Ok(data);
         }
 
         // =========================
@@ -52,15 +72,35 @@ namespace Demo01.Controllers
         }
 
         // =========================
-        // CREATE
+        // CREATE TRIP + AUTO SEATS
         // =========================
         [HttpPost]
-        public async Task<IActionResult> CreateTrip([FromBody] TrainTrip trip)
+        public async Task<IActionResult> CreateTrip(TrainTrip trip)
         {
             _context.TrainTrips.Add(trip);
             await _context.SaveChangesAsync();
 
-            return Ok(trip);
+            var seats = new List<TripSeatInventory>();
+
+            for (int i = 1; i <= 40; i++)
+            {
+                seats.Add(new TripSeatInventory
+                {
+                    TripId = trip.Id,
+                    SeatId = i,
+                    Status = "AVAILABLE"
+                });
+            }
+
+            _context.TripSeatInventories.AddRange(seats);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Trip + seats created",
+                tripId = trip.Id,
+                seatCount = 40
+            });
         }
 
         // =========================
@@ -75,8 +115,8 @@ namespace Demo01.Controllers
             if (existing == null) return NotFound();
 
             _context.Entry(existing).CurrentValues.SetValues(trip);
-
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
 

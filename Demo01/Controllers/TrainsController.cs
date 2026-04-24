@@ -17,78 +17,73 @@ namespace Demo01.Controllers
         }
 
         // =========================
-        // GET ALL
+        // 🔥 GET TRIPS (QUAN TRỌNG NHẤT)
         // =========================
         [HttpGet]
-        public async Task<IActionResult> GetTrains()
+        public async Task<IActionResult> GetTrips()
         {
-            return Ok(await _context.Trains.ToListAsync());
+            var data = await _context.TrainTrips
+                .Join(_context.Trains,
+                    trip => trip.TrainId,
+                    train => train.Id,
+                    (trip, train) => new { trip, train })
+
+                .Join(_context.Routes,
+                    t => t.trip.RouteId,
+                    route => route.Id,
+                    (t, route) => new { t.trip, t.train, route })
+
+                // 🔥 JOIN STATION (QUAN TRỌNG NHẤT)
+                .Join(_context.Stations,
+                    t => t.route.OriginStationId,
+                    s => s.Id,
+                    (t, originStation) => new { t.trip, t.train, t.route, originStation })
+
+                .Join(_context.Stations,
+                    t => t.route.DestinationStationId,
+                    s => s.Id,
+                    (t, destStation) => new
+                    {
+                        id = t.trip.Id,
+                        trainCode = t.train.TrainCode,
+
+                        // 🔥 FIX CHỖ NÀY
+                        from = t.originStation.Name,
+                        to = destStation.Name,
+
+                        date = t.trip.DepartureTime,
+                        time = t.trip.DepartureTime,
+                        price = 100
+                    })
+                .ToListAsync();
+
+            return Ok(data);
         }
 
         // =========================
-        // GET BY ID
+        // GET TRIP BY ID
         // =========================
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetTrain(int id)
+        public async Task<IActionResult> GetTrip(int id)
         {
-            var train = await _context.Trains.FindAsync(id);
-            if (train == null) return NotFound();
+            var trip = await _context.TrainTrips
+                .Include(t => t.Train)
+                .Include(t => t.Route)
+                .FirstOrDefaultAsync(t => t.Id == id);
 
-            return Ok(train);
-        }
+            if (trip == null) return NotFound();
 
-        // =========================
-        // CREATE
-        // =========================
-        [HttpPost]
-        public async Task<IActionResult> CreateTrain([FromBody] Train train)
-        {
-            _context.Trains.Add(train);
-            await _context.SaveChangesAsync();
-
-            return Ok(train);
-        }
-
-        // =========================
-        // UPDATE
-        // =========================
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTrain(int id, Train train)
-        {
-            if (id != train.Id) return BadRequest();
-
-            var existing = await _context.Trains.FindAsync(id);
-            if (existing == null) return NotFound();
-
-            _context.Entry(existing).CurrentValues.SetValues(train);
-
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
-
-        // =========================
-        // DELETE
-        // =========================
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTrain(int id)
-        {
-            var train = await _context.Trains.FindAsync(id);
-            if (train == null) return NotFound();
-
-            _context.Trains.Remove(train);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            return Ok(trip);
         }
 
         // =========================
         // GET TRIPS BY TRAIN
         // =========================
-        [HttpGet("{id}/trips")]
-        public async Task<IActionResult> GetTripsByTrain(int id)
+        [HttpGet("train/{trainId}")]
+        public async Task<IActionResult> GetTripsByTrain(int trainId)
         {
             var trips = await _context.TrainTrips
-                .Where(t => t.TrainId == id)
+                .Where(t => t.TrainId == trainId) // 🔥 FIX ĐÚNG
                 .ToListAsync();
 
             return Ok(trips);
